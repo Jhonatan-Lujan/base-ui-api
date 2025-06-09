@@ -6,7 +6,9 @@
   "scripts": {
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
-    "stop-only": "stop-only --folder cypress/e2e/customerWeb"
+    "stop-only": "stop-only --folder cypress/e2e/customerWeb",
+    "report:merge": "mochawesome-merge cypress/results/*.json -o cypress/report.json",
+    "report:generate": "marge cypress/report.json --charts true"
   },
   "repository": {
     "type": "git",
