@@ -3,15 +3,14 @@ on: [push]
 jobs:
   test:
     uses: bahmutov/cypress-workflows/.github/workflows/split.yml@v2
+    secrets:
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     with:
         nE2E: 2
         marge: true
         browser: chrome
-        before-run: |
-          echo "CYPRESS_ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_ENV
-          npm run stop-only
+        before-run: npm run stop-only
         publish-summary: true
-    secrets: inherit
         
 
 
