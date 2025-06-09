@@ -152,6 +152,9 @@ on:
         description: 'E2E split timings file to use and merge back'
         type: string
         required: false
+    secrets:
+      ADMIN_PASSWORD:
+        required: true
     outputs:
       merged-timings:
         description: "Combined timings JSON from split files"
@@ -229,6 +232,7 @@ jobs:
           SKIP_SPEC: '${{ inputs.skip-spec }}'
           # pass the DEBUG environment variable
           DEBUG: ${{ inputs.debug }}
+          CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         # pass the rest of the commands via Cypress GH Action
         with:
           config: ${{ inputs.config }}
@@ -268,73 +272,6 @@ jobs:
             cypress/results
             coverage
             ${{ inputs.split-file }}
-          if-no-files-found: ignore
-
-  # the N parallel Component testing jobs we create
-  componentTests:
-    if: ${{ inputs.nComponent > 0 }}
-    needs: prepare
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrixComponent) }}
-    steps:
-      - name: Debug inputs 🐞
-        if: ${{ inputs.debug-inputs }}
-        env:
-          WORKFLOW_INPUTS: ${{ toJson(inputs) }}
-        run: echo "$WORKFLOW_INPUTS"
-
-      - name: Checkout 🛎
-        uses: actions/checkout@v4
-
-      # these containers will load balance all found tests among themselves
-      - name: Cypress tests 🧪
-        uses: cypress-io/github-action@v6
-        # pass the machine index and the total number
-        # https://github.com/bahmutov/cypress-split
-        env:
-          SPLIT: ${{ strategy.job-total }}
-          SPLIT_INDEX: ${{ strategy.job-index }}
-          # pass the custom list of specs if needed
-          SPEC: '${{ inputs.spec }}'
-          SKIP_SPEC: '${{ inputs.skip-spec }}'
-          # pass the DEBUG environment variable
-          DEBUG: ${{ inputs.debug }}
-        # pass the rest of the commands via Cypress GH Action
-        with:
-          config: ${{ inputs.config }}
-          config-file: ${{ inputs.config-file }}
-          # Cypress.env values
-          env: '${{ inputs.env }}'
-          browser: ${{ inputs.browser }}
-          build: ${{ inputs.build }}
-          command: ${{ inputs.command }}
-          install: ${{ inputs.install }}
-          install-command: ${{ inputs.install-command }}
-          runTests: ${{ inputs.runTests }}
-          working-directory: ${{ inputs.working-directory }}
-          headed: ${{ inputs.headed }}
-          spec: ${{ inputs.spec }}
-          project: ${{ inputs.project }}
-          command-prefix: ${{ inputs.command-prefix }}
-          cache-key: ${{ inputs.cache-key }}
-          quiet: ${{ inputs.quiet }}
-          component: true
-
-      # capture screenshots, videos, Mochawesome reports
-      # in a single test artifact so that relative paths work
-      # capture screenshots, videos, Mochawesome reports, coverage folder
-      # https://github.com/actions/upload-artifact
-      - uses: actions/upload-artifact@v4
-        if: ${{ inputs.store-artifacts && always() }}
-        with:
-          name: cypress-split-results-component-${{ strategy.job-index }}
-          path: |
-            cypress/screenshots
-            cypress/videos
-            cypress/results
-            coverage
           if-no-files-found: ignore
 
   merge-reports:

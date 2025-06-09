@@ -3,16 +3,14 @@ on: [push]
 jobs:
   test:
     uses: ./.github/workflows/split-local.yml
-    secrets: inherit
+    secrets:
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     with:
         nE2E: 2
         marge: true
         browser: chrome
         before-run: npm run stop-only
         publish-summary: true
-        env: |
-          CYPRESS_ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
-          npm run stop-only
         
 
 
