@@ -2,7 +2,7 @@ name: e2e tests
 on: [push]
 jobs:
   test:
-    uses: bahmutov/cypress-workflows/.github/workflows/split.yml@v2
+    uses: ./.github/workflows/split-local.yml
     secrets: inherit
     with:
         nE2E: 2
