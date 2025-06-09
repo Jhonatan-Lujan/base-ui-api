@@ -8,10 +8,9 @@ jobs:
         marge: true
         browser: chrome
         before-run: |
-          echo "🧪 CYPRESS_ADMIN_PASSWORD=$CYPRESS_ADMIN_PASSWORD"
+          echo "CYPRESS_ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_ENV
           npm run stop-only
         publish-summary: true
-        env: "CYPRESS_ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}"
     secrets: inherit
         
 
