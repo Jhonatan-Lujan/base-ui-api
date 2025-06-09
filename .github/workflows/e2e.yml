@@ -1,0 +1,18 @@
+name: e2e tests
+on: [push]
+jobs:
+  test:
+    # use the reusable workflow to check out the code, install dependencies
+    # and run the Cypress tests
+    # https://github.com/bahmutov/cypress-workflows
+    uses: bahmutov/cypress-workflows/.github/workflows/split.yml@v2
+    with:
+        nE2E: 2
+        marge: true
+        browser: chrome
+        before-run: npm run stop-only
+        publish-summary: true
+        env: CYPRESS_ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+        
+
+

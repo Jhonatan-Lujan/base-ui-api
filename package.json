@@ -1,0 +1,39 @@
+{
+  "name": "base-ui-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "stop-only": "stop-only --folder cypress/e2e/customerWeb"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jhonatan-Lujan/base-ui-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Jhonatan-Lujan/base-ui-api/issues"
+  },
+  "homepage": "https://github.com/Jhonatan-Lujan/base-ui-api#readme",
+  "devDependencies": {
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.5",
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "@faker-js/faker": "^9.8.0",
+    "cypress": "^14.4.0",
+    "cypress-dotenv": "^3.0.1",
+    "cypress-network-idle": "^1.15.0",
+    "cypress-on-fix": "^1.1.0",
+    "cypress-plugin-api": "^2.11.2",
+    "cypress-split": "^1.24.17",
+    "esbuild": "^0.25.5",
+    "mochawesome": "^7.1.3",
+    "mochawesome-merge": "^5.0.0",
+    "mochawesome-report-generator": "^6.2.0",
+    "stop-only": "^3.4.3"
+  }
+}
