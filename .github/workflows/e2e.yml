@@ -12,9 +12,9 @@ jobs:
         browser: chrome
         before-run: npm run stop-only
         publish-summary: true
+        env: |
+          CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     secrets: inherit
-    env:
-      CYPRESS_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         
 
 
