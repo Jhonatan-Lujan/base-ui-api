@@ -1,0 +1,17 @@
+name: e2e tests
+on: [push]
+jobs:
+  test:
+    uses: ./.github/workflows/split-local.yml
+    secrets:
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    with:
+        nE2E: 2
+        marge: true
+        browser: chrome
+        before-run: npm run stop-only
+        publish-summary: true
+        split-file: timings.json
+        
+
+
