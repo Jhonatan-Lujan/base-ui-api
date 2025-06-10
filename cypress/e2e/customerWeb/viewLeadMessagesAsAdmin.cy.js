@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker'
 import 'cypress-network-idle'
 
 describe('restful booker - cypress api', () => {
-  it('should be able to see and read lead messages from the admin portal as admin role', () => {
+  it.only('should be able to see and read lead messages from the admin portal as admin role', () => {
     const name = faker.person.fullName()
     const email = faker.internet.email()
     const phone = faker.phone.number()
