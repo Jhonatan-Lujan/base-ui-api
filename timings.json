@@ -1,4 +1,13 @@
 {
-    
+    "durations": [
+        {
+        "spec": "cypress/e2e/customerWeb/viewLeadMessagesAsAdmin.cy.js",
+        "duration": 6332
+        },
+        {
+        "spec": "cypress/e2e/customerWeb/viewLeadMessagesAsAdminPOM.cy.js",
+        "duration": 7990
+        }
+    ]
 }
 
