@@ -24,7 +24,9 @@ export default defineConfig({
       html: true,
       json: true,
     },
+    specPattern: 'cypress/**/**/*.cy.{js,jsx,ts,tsx}',
     env: {
+      BASE_URL_API: "https://automationintesting.online/api/",
       ADMIN_USERNAME: 'admin',
       ADMIN_PASSWORD: process.env.CYPRESS_ADMIN_PASSWORD
     }
