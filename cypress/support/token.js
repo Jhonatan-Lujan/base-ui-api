@@ -1,16 +1,16 @@
 class TokenManager {
-    token = null
-    set(newToken){
-        this.token = newToken
-    }
+	token = null
+	set(newToken) {
+		this.token = newToken
+	}
 
-    get() {
-        return this.token
-    }
+	get() {
+		return this.token
+	}
 
-    clear() {
-        this.token = null
-    }
+	clear() {
+		this.token = null
+	}
 }
 
 export default new TokenManager()

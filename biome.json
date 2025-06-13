@@ -1,0 +1,65 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"vcs": {
+		"enabled": false,
+		"clientKind": "git",
+		"useIgnoreFile": false
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"ignore": [
+			"node_modules/**",
+			"dist/**",
+			"build/**",
+			"coverage/**",
+			"*.min.js",
+			"cypress/results/**",
+			"mochawesome-report/**",
+			"cypress/downloads/**",
+			"cypress/screenshots/**",
+			"cypress/videos/**"
+		],
+		"include": ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab"
+	},
+	"organizeImports": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"complexity": {
+				"noStaticOnlyClass": "off",
+				"noThisInStatic": "off",
+				"useOptionalChain": "off"
+			},
+			"suspicious": {
+				"noConsoleLog": "off"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "asNeeded",
+			"lineWidth": 120
+		}
+	},
+	"overrides": [
+		{
+			"include": ["cypress/**/*"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsoleLog": "off",
+						"noImplicitAnyLet": "off"
+					}
+				}
+			}
+		}
+	]
+}
