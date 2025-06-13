@@ -31,6 +31,7 @@
     "cypress-network-idle": "^1.15.0",
     "cypress-on-fix": "^1.1.0",
     "cypress-plugin-api": "^2.11.2",
+    "cypress-schema-validator": "^1.0.0",
     "cypress-split": "^1.24.17",
     "esbuild": "^0.25.5",
     "mochawesome": "^7.1.3",

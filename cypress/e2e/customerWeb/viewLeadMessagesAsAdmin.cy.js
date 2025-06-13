@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker'
 import 'cypress-network-idle'
 
-describe('restful booker - cypress api', () => {
+describe('restful booker - cypress ui', () => {
   it('should be able to see and read lead messages from the admin portal as admin role', () => {
     const name = faker.person.fullName()
     const email = faker.internet.email()

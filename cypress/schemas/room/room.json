@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Get Rooms Response",
+  "type": "object",
+  "required": ["rooms"],
+  "properties": {
+    "rooms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "roomid",
+          "roomName",
+          "type",
+          "accessible",
+          "image",
+          "description",
+          "features",
+          "roomPrice"
+        ],
+        "properties": {
+          "roomid": { "type": "integer" },
+          "roomName": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["Single", "Double", "Twin", "Suite", "Family"]
+          },
+          "accessible": { "type": "boolean" },
+          "image": { "type": "string" },
+          "description": { "type": "string" },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["WiFi", "TV", "Refreshments", "Safe", "Radio", "Views"]
+            }
+          },
+          "roomPrice": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
