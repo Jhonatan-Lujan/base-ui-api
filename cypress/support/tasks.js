@@ -1,5 +1,3 @@
-export default function tasks(on){
-    return {
-        
-    }
+export default function tasks(on) {
+	return {}
 }
