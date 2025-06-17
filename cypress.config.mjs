@@ -24,6 +24,7 @@ export default defineConfig({
       html: true,
       json: true,
     },
+    experimentalRunAllSpecs: true,
     specPattern: 'cypress/**/**/*.cy.{js,jsx,ts,tsx}',
     env: {
       BASE_URL_API: "https://automationintesting.online/api/",

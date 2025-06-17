@@ -128,13 +128,6 @@ on:
         type: boolean
         required: false
         default: false
-      coverage:
-        description: |
-          Download all coverage results from all test jobs
-          and merge into a single coverage report
-        type: boolean
-        required: false
-        default: false
       # we are setting it true by default for the split workflow
       # since this workflow has its own GHA summary via cypress-split plugin
       publish-summary:
@@ -246,7 +239,7 @@ jobs:
 
       # capture screenshots, videos, Mochawesome reports
       # in a single test artifact so that relative paths work
-      # capture screenshots, videos, Mochawesome reports, coverage folder
+      # capture screenshots, videos, Mochawesome reports folder
       # https://github.com/actions/upload-artifact
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.store-artifacts && always() }}
@@ -256,7 +249,6 @@ jobs:
             cypress/screenshots
             cypress/videos
             cypress/results
-            coverage
             ${{ inputs.split-file }}
           if-no-files-found: ignore
 
@@ -317,38 +309,6 @@ jobs:
         with:
           name: merged-mochawesome-report
           path: mochawesome
-
-  merge-coverage:
-    if: ${{ inputs.store-artifacts && inputs.coverage && always() }}
-    needs: [e2eTests]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout 🛎
-        uses: actions/checkout@v4
-      - name: Install dependencies 🧪
-        uses: cypress-io/github-action@v6
-        with:
-          runTests: false
-      # https://github.com/actions/download-artifact
-      - uses: actions/download-artifact@v4
-        # download all test results artifacts from the previous jobs
-        # it would be nice to download only the split jobs test artifacts
-        # but cannot specify the pattern of the test artifacts yet
-        # https://github.com/actions/download-artifact/issues/103
-        with:
-          path: split-results
-      - name: Display structure of downloaded files
-        run: ls -R split-results
-
-      - name: Merge coverage reports
-        # assuming the merge tool is installed
-        # https://github.com/bahmutov/cypress-code-coverage
-        run: npx cc-merge split-results
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: merged-coverage
-          path: coverage
 
   merge-split-timings:
     # only merge timings if E2E specs were successful
