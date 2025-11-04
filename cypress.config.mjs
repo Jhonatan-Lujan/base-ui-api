@@ -11,7 +11,10 @@ export default defineConfig({
       const on = onFix(cypressOn)
       esbuildPreprocessor(on)
       tasks(on)
-      return await plugins(on, config)
+      const pluginsConfig = await plugins(on, config)
+      return {
+        ...config,
+        ...pluginsConfig,}
     },
     baseUrl: "https://automationintesting.online/",
     reporter: 'mochawesome',
@@ -25,7 +28,12 @@ export default defineConfig({
       json: true,
     },
     experimentalRunAllSpecs: true,
-    specPattern: 'cypress/**/**/*.cy.{js,jsx,ts,tsx}',
+    specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
+    video: true,
+    videoCompression: 32,
+    videosFolder: 'cypress/videos',
+    screenshotsFolder: 'cypress/screenshots',
+    screenshotOnRunFailure: true,
     env: {
       BASE_URL_API: "https://automationintesting.online/api/",
       ADMIN_USERNAME: 'admin',

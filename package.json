@@ -9,7 +9,7 @@
 		"cypress:run": "cypress run",
 		"stop-only": "stop-only --folder cypress/e2e/customerWeb",
 		"report:merge": "mochawesome-merge cypress/results/*.json -o cypress/report.json",
-		"report:generate": "marge cypress/report.json --charts true",
+		"report:generate": "marge cypress/report.json --reportDir cypress/reports --inline --charts",
 		"lint": "npm run lint:biome && npm run lint:cypress",
 		"lint:fix": "npm run lint:biome:fix && npm run lint:cypress:fix",
 		"lint:biome": "biome check .",
