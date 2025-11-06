@@ -304,10 +304,10 @@ jobs:
               cp "${artifact_dir}cypress/results/"*.json mochawesome/results/
             fi
           done
-      - name: Reconstruct folder structure from JSON metadata
-        run: node scripts/reconstruct-structure.cjs
       - name: Debug list videos 
         run: find mochawesome/videos -type f -maxdepth 4 -printf "%P\n" || true
+      - name: Reconstruct folder structure from JSON metadata
+        run: node scripts/reconstruct-structure.js
       - name: Show reconstructed structure
         run: ls -lR mochawesome
       - name: Debug list videos 
