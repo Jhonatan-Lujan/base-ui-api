@@ -304,7 +304,9 @@ jobs:
               cp "${artifact_dir}cypress/results/"*.json mochawesome/results/
             fi
           done
-      - name: Show copied files
+      - name: Reconstruct folder structure from JSON metadata
+        run: node scripts/reconstruct-structure.js
+      - name: Show reconstructed structure
         run: ls -lR mochawesome
       - name: Merge Mochawesome JSON reports
         # assuming the merge tool is installed
