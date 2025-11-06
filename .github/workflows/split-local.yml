@@ -286,14 +286,26 @@ jobs:
           mkdir -p mochawesome/screenshots
           mkdir -p mochawesome/videos
           mkdir -p mochawesome/results
-      - name: Copy all assets and JSON reports
+      # - name: Copy all assets and JSON reports
+      #   run: |
+      #     cp -r split-results/cypress-split-results-*/cypress/screenshots/* mochawesome/screenshots || true
+      #     cp -r split-results/cypress-split-results-*/cypress/videos/* mochawesome/videos || true
+      #     cp -r split-results/cypress-split-results-*/cypress/results/* mochawesome/results || true
+      - name: Copy all assets and JSON reports preserving directory structure
         run: |
-          cp -r split-results/cypress-split-results-*/cypress/screenshots/* mochawesome/screenshots || true
-          cp -r split-results/cypress-split-results-*/cypress/videos/* mochawesome/videos || true
-          cp -r split-results/cypress-split-results-*/cypress/results/* mochawesome/results || true
+          for artifact_dir in split-results/cypress-split-results-*/; do
+            if [ -d "${artifact_dir}cypress/screenshots" ]; then
+              cp -r "${artifact_dir}cypress/screenshots/." mochawesome/screenshots/
+            fi
+            if [ -d "${artifact_dir}cypress/videos" ]; then
+              cp -r "${artifact_dir}cypress/videos/." mochawesome/videos/
+            fi
+            if [ -d "${artifact_dir}cypress/results" ]; then
+              cp "${artifact_dir}cypress/results/"*.json mochawesome/results/
+            fi
+          done
       - name: Show copied files
         run: ls -lR mochawesome
-
       - name: Merge Mochawesome JSON reports
         # assuming the merge tool is installed
         run: npx mochawesome-merge mochawesome/results/*.json -o mochawesome/results/merged.json
