@@ -305,7 +305,7 @@ jobs:
             fi
           done
       - name: Reconstruct folder structure from JSON metadata
-        run: node scripts/reconstruct-structure.js
+        run: node scripts/reconstruct-structure.cjs
       - name: Show reconstructed structure
         run: ls -lR mochawesome
       - name: Merge Mochawesome JSON reports
