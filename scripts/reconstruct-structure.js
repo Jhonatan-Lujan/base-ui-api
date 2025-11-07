@@ -1,7 +1,7 @@
-// Robust pero conciso. Busca fullFile recursivamente y mueve videos/screenshots.
-// - No asume fullFile en una posición fija
-// - Comprueba existencia antes de operar
-// - Evita sobrescribir: si dest existe, añade un suffix incremental
+// Robust but concise. Recursively searches fullFile and moves videos/screenshots.
+// - Does not assume fullFile is in a fixed position
+// - Checks for existence before operating
+// - Avoids overwriting: if dest exists, adds an incremental suffix
 
 import fs from 'fs'
 import path from 'path'
@@ -19,12 +19,12 @@ const safeReaddir = dir => {
 }
 const ensureDir = dir => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }) }
 
-// ---- findFullFile: recorre objetos/suites/tests para localizar first fullFile ----
+// findFullFile: traverses objects/suites/tests to locate first fullFile
 function findFullFile(node) {
   if (!node || typeof node !== 'object') return null
   if (typeof node.fullFile === 'string' && node.fullFile) return node.fullFile
 
-  // recorrer arrays y objetos comunes
+  // iterate through common arrays and objects
   for (const key of ['suites', 'tests', 'root', 'suites']) {
     if (Array.isArray(node[key])) {
       for (const child of node[key]) {
@@ -33,7 +33,7 @@ function findFullFile(node) {
       }
     }
   }
-  // también recorrer propiedades genéricas por si la estructura difiere
+  // also iterate through generic properties in case the structure differs
   for (const [k, v] of Object.entries(node)) {
     if (v && typeof v === 'object') {
       const f = findFullFile(v)
@@ -47,7 +47,7 @@ function findFullFile(node) {
 function safeMove(src, dest) {
   if (!fs.existsSync(src)) return false
   ensureDir(path.dirname(dest))
-  // si dest existe, crear dest nuevo con sufijo incremental
+  // if dest exists, create new dest with incremental suffix
   if (fs.existsSync(dest)) {
     const ext = path.extname(dest)
     const base = dest.slice(0, -ext.length)
@@ -68,10 +68,10 @@ function safeMove(src, dest) {
 }
 
 function findMp4ByName(root, filename) {
-  // intenta ruta directa
+  // try direct route
   const candidate = path.join(root, filename)
   if (fs.existsSync(candidate)) return candidate
-  // búsqueda recursiva rápida (primer match exacto)
+  // fast recursive search (first exact match)
   const found = []
   (function walk(dir) {
     for (const e of safeReaddir(dir)) {
@@ -139,7 +139,7 @@ function findMp4ByName(root, filename) {
         const dest = path.join(screenshotsRoot, subfolder, specName)
         safeMove(screenshotsFolder, dest)
       } else {
-        // fallback: buscar archivos que contengan spec basename (no lanzar error)
+        // fallback: search for files containing spec basename (do not throw error)
         const specNoExt = specName.replace(path.extname(specName), '').toLowerCase()
         let movedAny = false
         (function walk(dir) {

@@ -304,16 +304,10 @@ jobs:
               cp "${artifact_dir}cypress/results/"*.json mochawesome/results/
             fi
           done
-      - name: Debug list videos BEFORE
-        run: find mochawesome/videos -type f -maxdepth 4 -print || true
       - name: Reconstruct folder structure from JSON metadata
         run: node scripts/reconstruct-structure.js
       - name: Show reconstructed structure
         run: ls -lR mochawesome
-      - name: Debug list videos AFTER
-        run: find mochawesome/videos -type f -maxdepth 6 -print || true
-      - name: Debug list screenshots AFTER
-        run: find mochawesome/screenshots -type f -maxdepth 6 -print || true
       - name: Merge Mochawesome JSON reports
         # assuming the merge tool is installed
         run: npx mochawesome-merge mochawesome/results/*.json -o mochawesome/results/merged.json
