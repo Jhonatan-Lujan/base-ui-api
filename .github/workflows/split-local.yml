@@ -274,7 +274,7 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R split-results
 
-      # copy all reports and videos and screenshots into a single place
+      # Copy all assets and JSON reports preserving directory structure
       # mochawesome/
       #   screenshots/
       #   videos/
@@ -286,11 +286,6 @@ jobs:
           mkdir -p mochawesome/screenshots
           mkdir -p mochawesome/videos
           mkdir -p mochawesome/results
-      # - name: Copy all assets and JSON reports
-      #   run: |
-      #     cp -r split-results/cypress-split-results-*/cypress/screenshots/* mochawesome/screenshots || true
-      #     cp -r split-results/cypress-split-results-*/cypress/videos/* mochawesome/videos || true
-      #     cp -r split-results/cypress-split-results-*/cypress/results/* mochawesome/results || true
       - name: Copy all assets and JSON reports preserving directory structure
         run: |
           for artifact_dir in split-results/cypress-split-results-*/; do
