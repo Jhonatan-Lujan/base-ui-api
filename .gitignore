@@ -1,6 +1,8 @@
 node_modules/
 .env
 results/
+reports/
 videos/
+screenshots/
 mochawesome-report/
 report.json

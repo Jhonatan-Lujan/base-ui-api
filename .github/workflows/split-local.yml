@@ -274,7 +274,7 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R split-results
 
-      # copy all reports and videos and screenshots into a single place
+      # Copy all assets and JSON reports preserving directory structure
       # mochawesome/
       #   screenshots/
       #   videos/
@@ -286,14 +286,23 @@ jobs:
           mkdir -p mochawesome/screenshots
           mkdir -p mochawesome/videos
           mkdir -p mochawesome/results
-      - name: Copy all assets and JSON reports
+      - name: Copy all assets and JSON reports preserving directory structure
         run: |
-          cp -r split-results/cypress-split-results-*/cypress/screenshots/* mochawesome/screenshots || true
-          cp -r split-results/cypress-split-results-*/cypress/videos/* mochawesome/videos || true
-          cp -r split-results/cypress-split-results-*/cypress/results/* mochawesome/results || true
-      - name: Show copied files
+          for artifact_dir in split-results/cypress-split-results-*/; do
+            if [ -d "${artifact_dir}cypress/screenshots" ]; then
+              cp -r "${artifact_dir}cypress/screenshots/." mochawesome/screenshots/
+            fi
+            if [ -d "${artifact_dir}cypress/videos" ]; then
+              cp -r "${artifact_dir}cypress/videos/." mochawesome/videos/
+            fi
+            if [ -d "${artifact_dir}cypress/results" ]; then
+              cp "${artifact_dir}cypress/results/"*.json mochawesome/results/
+            fi
+          done
+      - name: Reconstruct folder structure from JSON metadata
+        run: node scripts/reconstruct-structure.js
+      - name: Show reconstructed structure
         run: ls -lR mochawesome
-
       - name: Merge Mochawesome JSON reports
         # assuming the merge tool is installed
         run: npx mochawesome-merge mochawesome/results/*.json -o mochawesome/results/merged.json
