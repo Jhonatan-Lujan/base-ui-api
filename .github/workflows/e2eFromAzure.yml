@@ -1,0 +1,18 @@
+name: E2E from Azure
+
+on:
+  repository_dispatch:
+    types: [run-e2e]
+
+jobs:
+  test:
+    uses: ./.github/workflows/split-local.yml
+    with:
+        nE2E: 2
+        marge: true
+        browser: chrome
+        before-run: npm run stop-only
+        publish-summary: true
+        split-file: timings.json
+    secrets:
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
