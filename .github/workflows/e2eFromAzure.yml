@@ -1,18 +1,40 @@
-name: E2E from Azure
+name: e2e tests
 
-on:
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
   repository_dispatch:
-    types: [run-e2e]
+    types: [azure_devops_trigger]  # ← Nuevo trigger
 
 jobs:
   test:
     uses: ./.github/workflows/split-local.yml
-    with:
-        nE2E: 2
-        marge: true
-        browser: chrome
-        before-run: npm run stop-only
-        publish-summary: true
-        split-file: timings.json
     secrets:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    with:
+      nE2E: 2
+      marge: true
+      browser: chrome
+      before-run: npm run stop-only
+      publish-summary: true
+      split-file: timings.json
+
+  # Nuevo job para reportar a Azure DevOps
+  report-to-azure:
+    needs: test
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Success to Azure DevOps
+        if: success()
+        run: |
+          echo "✅ Tests passed - reporting to Azure DevOps"
+          # Aquí puedes agregar lógica para actualizar el PR en Azure
+          
+      - name: Report Failure to Azure DevOps
+        if: failure()
+        run: |
+          echo "❌ Tests failed - reporting to Azure DevOps"
+          exit 1
