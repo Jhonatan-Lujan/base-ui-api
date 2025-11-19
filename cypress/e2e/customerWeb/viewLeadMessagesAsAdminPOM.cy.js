@@ -33,7 +33,7 @@ describe('restful booker - cypress page object model', () => {
 
 		cy.url().should('include', '/admin/rooms')
 		cy.waitForNetworkIdle('GET', '*.x-component', 200)
-		internalMenu.clickMenuOption('Messages')
+		// internalMenu.clickMenuOption('Messages')
 		cy.url().should('include', '/admin/message')
 		messagesPage
 			.openMessageByName(contactInformation.name)
