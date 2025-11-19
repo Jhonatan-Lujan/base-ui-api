@@ -6,10 +6,61 @@ on:
       - main
   pull_request:
   repository_dispatch:
-    types: [azure_devops_trigger]  # ← Nuevo trigger
+    types: [azure_devops_trigger]
 
 jobs:
+  # Post pending status to Azure DevOps
+  post-pending-status:
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Pending Status to Azure DevOps
+        run: |
+          echo "📤 Posting pending status to Azure DevOps..."
+          
+          AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
+          AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
+          REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
+          
+          if [ -z "$PR_ID" ] || [ "$PR_ID" = "null" ]; then
+            echo "⚠️ No PR ID provided, skipping status post"
+            exit 0
+          fi
+          
+          PAYLOAD=$(cat <<EOF
+          {
+            "state": "pending",
+            "description": "GitHub Actions E2E tests are running...",
+            "context": {
+              "name": "GitHub-E2E-Tests",
+              "genre": "continuous-integration"
+            },
+            "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          )
+          
+          HTTP_STATUS=$(curl -w "%{http_code}" -o response.json \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
+            -d "$PAYLOAD")
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          cat response.json
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+            echo "✅ Pending status posted successfully"
+          else
+            echo "⚠️ Failed to post status, but continuing..."
+          fi
+
+  # Run actual tests
   test:
+    needs: post-pending-status
+    if: always()  # Run even if status post failed
     uses: ./.github/workflows/split-local.yml
     secrets:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
@@ -21,20 +72,70 @@ jobs:
       publish-summary: true
       split-file: timings.json
 
-  # Nuevo job para reportar a Azure DevOps
+  # Report results back to Azure DevOps
   report-to-azure:
     needs: test
-    if: github.event_name == 'repository_dispatch'
+    if: always() && github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Report Success to Azure DevOps
-        if: success()
+      - name: Determine Test Result
+        id: test_result
         run: |
-          echo "✅ Tests passed - reporting to Azure DevOps"
-          # Aquí puedes agregar lógica para actualizar el PR en Azure
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            echo "state=succeeded" >> $GITHUB_OUTPUT
+            echo "description=All E2E tests passed ✅" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "state=failed" >> $GITHUB_OUTPUT
+            echo "description=E2E tests failed ❌" >> $GITHUB_OUTPUT
+          else
+            echo "state=error" >> $GITHUB_OUTPUT
+            echo "description=E2E tests encountered an error ⚠️" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Post Final Status to Azure DevOps
+        run: |
+          echo "📤 Posting final status to Azure DevOps..."
           
-      - name: Report Failure to Azure DevOps
-        if: failure()
-        run: |
-          echo "❌ Tests failed - reporting to Azure DevOps"
-          exit 1
+          AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
+          AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
+          REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
+          
+          if [ -z "$PR_ID" ] || [ "$PR_ID" = "null" ]; then
+            echo "⚠️ No PR ID provided, skipping status post"
+            exit 0
+          fi
+          
+          PAYLOAD=$(cat <<EOF
+          {
+            "state": "${{ steps.test_result.outputs.state }}",
+            "description": "${{ steps.test_result.outputs.description }}",
+            "context": {
+              "name": "GitHub-E2E-Tests",
+              "genre": "continuous-integration"
+            },
+            "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          )
+          
+          HTTP_STATUS=$(curl -w "%{http_code}" -o response.json \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
+            -d "$PAYLOAD")
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          cat response.json
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+            echo "✅ Status posted successfully to Azure DevOps"
+          else
+            echo "❌ Failed to post status to Azure DevOps"
+            exit 1
+          fi
+      
+      - name: Fail if Tests Failed
+        if: steps.test_result.outputs.state != 'succeeded'
+        run: exit 1
