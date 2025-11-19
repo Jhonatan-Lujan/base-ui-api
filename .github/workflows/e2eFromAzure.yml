@@ -21,15 +21,11 @@ jobs:
           AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
           AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
           PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
           
-          if [ -z "$PR_ID" ] || [ "$PR_ID" = "null" ]; then
-            echo "⚠️ No PR ID provided, skipping status post"
-            exit 0
-          fi
-          
-          PAYLOAD=$(cat <<EOF
-          {
+          # Preparar el payload base
+          BASE_PAYLOAD='{
             "state": "pending",
             "description": "GitHub Actions E2E tests are running...",
             "context": {
@@ -37,22 +33,47 @@ jobs:
               "genre": "continuous-integration"
             },
             "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          EOF
-          )
+          }'
           
-          HTTP_STATUS=$(curl -w "%{http_code}" -o response.json \
+          # Intentar postear a PR primero (si existe PR_ID)
+          if [ -n "$PR_ID" ] && [ "$PR_ID" != "null" ]; then
+            echo "📍 Posting to PR #$PR_ID..."
+            
+            HTTP_STATUS=$(curl -w "%{http_code}" -o pr_response.json \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+              "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
+              -d "$BASE_PAYLOAD")
+            
+            echo "PR Status HTTP: $HTTP_STATUS"
+            cat pr_response.json
+            
+            if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+              echo "✅ PR status posted successfully"
+              exit 0
+            else
+              echo "⚠️ PR status failed, trying commit status..."
+            fi
+          else
+            echo "⚠️ No PR ID, posting to commit only"
+          fi
+          
+          # Fallback: Postear a commit level (siempre funciona)
+          echo "📍 Posting to commit $COMMIT_SHA..."
+          
+          HTTP_STATUS=$(curl -w "%{http_code}" -o commit_response.json \
             -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
-            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
-            -d "$PAYLOAD")
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
+            -d "$BASE_PAYLOAD")
           
-          echo "HTTP Status: $HTTP_STATUS"
-          cat response.json
+          echo "Commit Status HTTP: $HTTP_STATUS"
+          cat commit_response.json
           
           if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-            echo "✅ Pending status posted successfully"
+            echo "✅ Commit status posted successfully"
           else
             echo "⚠️ Failed to post status, but continuing..."
           fi
@@ -93,21 +114,18 @@ jobs:
           fi
       
       - name: Post Final Status to Azure DevOps
+        continue-on-error: true
         run: |
           echo "📤 Posting final status to Azure DevOps..."
           
           AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
           AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
           PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
           
-          if [ -z "$PR_ID" ] || [ "$PR_ID" = "null" ]; then
-            echo "⚠️ No PR ID provided, skipping status post"
-            exit 0
-          fi
-          
-          PAYLOAD=$(cat <<EOF
-          {
+          # Preparar el payload base
+          BASE_PAYLOAD='{
             "state": "${{ steps.test_result.outputs.state }}",
             "description": "${{ steps.test_result.outputs.description }}",
             "context": {
@@ -115,27 +133,54 @@ jobs:
               "genre": "continuous-integration"
             },
             "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          EOF
-          )
+          }'
           
-          HTTP_STATUS=$(curl -w "%{http_code}" -o response.json \
+          # Intentar postear a PR primero (si existe PR_ID)
+          if [ -n "$PR_ID" ] && [ "$PR_ID" != "null" ]; then
+            echo "📍 Posting to PR #$PR_ID..."
+            
+            HTTP_STATUS=$(curl -w "%{http_code}" -o pr_response.json \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+              "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
+              -d "$BASE_PAYLOAD")
+            
+            echo "PR Status HTTP: $HTTP_STATUS"
+            cat pr_response.json
+            
+            if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+              echo "✅ PR status posted successfully"
+              # No exit aquí, continuar para postear también a commit
+            else
+              echo "⚠️ PR status failed"
+            fi
+          fi
+          
+          # SIEMPRE postear a commit level (para que aparezca en el repo)
+          echo "📍 Posting to commit $COMMIT_SHA..."
+          
+          HTTP_STATUS=$(curl -w "%{http_code}" -o commit_response.json \
             -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
-            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
-            -d "$PAYLOAD")
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
+            -d "$BASE_PAYLOAD")
           
-          echo "HTTP Status: $HTTP_STATUS"
-          cat response.json
+          echo "Commit Status HTTP: $HTTP_STATUS"
+          cat commit_response.json
           
           if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
             echo "✅ Status posted successfully to Azure DevOps"
           else
             echo "❌ Failed to post status to Azure DevOps"
-            exit 1
+            echo "Response:"
+            cat commit_response.json
+            # No fallar aquí, solo advertir
           fi
       
       - name: Fail if Tests Failed
         if: steps.test_result.outputs.state != 'succeeded'
-        run: exit 1
+        run: |
+          echo "❌ Tests failed - marking job as failed"
+          exit 1
