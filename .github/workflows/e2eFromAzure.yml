@@ -12,6 +12,7 @@ jobs:
   post-pending-status:
     if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Post Pending Status
         run: |
@@ -22,7 +23,10 @@ jobs:
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
           COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
           
-          # Construir JSON con jq
+          # Token en variable para debugging
+          TOKEN="${{ secrets.AZURE_DEVOPS_TOKEN }}"
+          
+          # Construir JSON
           PAYLOAD=$(jq -n \
             --arg state "pending" \
             --arg desc "GitHub Actions E2E tests running..." \
@@ -39,28 +43,23 @@ jobs:
               targetUrl: $url
             }')
           
-          echo "Payload:"
-          echo "$PAYLOAD" | jq .
+          echo "Payload: $PAYLOAD"
           
-          # Post a commit status (siempre funciona)
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
+          # Post con verbose para debug
+          curl -v \
             -X POST \
             -H "Content-Type: application/json" \
-            -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+            -H "Authorization: Basic $(printf ":%s" "$TOKEN" | base64 -w 0)" \
             "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
-            -d "$PAYLOAD")
+            -d "$PAYLOAD" \
+            2>&1 | tee curl_output.log
           
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Status: $HTTP_STATUS"
-          echo "Response:"
-          echo "$BODY" | jq . || echo "$BODY"
-          
-          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+          # Verificar
+          if grep -q "HTTP/2 20" curl_output.log; then
             echo "✅ Status posted"
           else
-            echo "⚠️ Failed, but continuing..."
+            echo "❌ Failed - check logs above"
+            exit 1
           fi
 
   test:
@@ -81,6 +80,7 @@ jobs:
     needs: test
     if: always() && github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Determine Result
         id: result
@@ -105,11 +105,18 @@ jobs:
           AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
           COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
+          TOKEN="${{ secrets.AZURE_DEVOPS_TOKEN }}"
           
-          # Construir JSON con jq
+          # SIN EMOJIS en la descripción
+          if [ "${{ steps.result.outputs.state }}" = "succeeded" ]; then
+            DESC="All E2E tests passed"
+          else
+            DESC="E2E tests failed"
+          fi
+          
           PAYLOAD=$(jq -n \
             --arg state "${{ steps.result.outputs.state }}" \
-            --arg desc "${{ steps.result.outputs.desc }}" \
+            --arg desc "$DESC" \
             --arg name "GitHub-E2E-Tests" \
             --arg genre "continuous-integration" \
             --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
@@ -123,28 +130,22 @@ jobs:
               targetUrl: $url
             }')
           
-          echo "Payload:"
-          echo "$PAYLOAD" | jq .
+          echo "Payload: $PAYLOAD"
           
-          # Post a commit status
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
+          curl -v \
             -X POST \
             -H "Content-Type: application/json" \
-            -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
+            -H "Authorization: Basic $(printf ":%s" "$TOKEN" | base64 -w 0)" \
             "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
-            -d "$PAYLOAD")
+            -d "$PAYLOAD" \
+            2>&1 | tee curl_output.log
           
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Status: $HTTP_STATUS"
-          echo "Response:"
-          echo "$BODY" | jq . || echo "$BODY"
-          
-          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-            echo "✅ Status posted to Azure"
+          if grep -q "HTTP/2 20" curl_output.log; then
+            echo "✅ Posted to Azure"
           else
-            echo "❌ Failed to post"
+            echo "❌ Failed"
+            cat curl_output.log
+            exit 1
           fi
       
       - name: Fail if Tests Failed
