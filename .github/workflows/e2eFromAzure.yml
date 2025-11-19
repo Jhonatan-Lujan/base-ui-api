@@ -9,79 +9,63 @@ on:
     types: [azure_devops_trigger]
 
 jobs:
-  # Post pending status to Azure DevOps
   post-pending-status:
     if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Post Pending Status to Azure DevOps
+      - name: Post Pending Status
         run: |
-          echo "📤 Posting pending status to Azure DevOps..."
+          echo "📤 Posting pending status..."
           
           AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
           AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
           COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-          PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
           
-          # Preparar el payload base
-          BASE_PAYLOAD='{
-            "state": "pending",
-            "description": "GitHub Actions E2E tests are running...",
-            "context": {
-              "name": "GitHub-E2E-Tests",
-              "genre": "continuous-integration"
-            },
-            "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }'
+          # Construir JSON con jq
+          PAYLOAD=$(jq -n \
+            --arg state "pending" \
+            --arg desc "GitHub Actions E2E tests running..." \
+            --arg name "GitHub-E2E-Tests" \
+            --arg genre "continuous-integration" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              state: $state,
+              description: $desc,
+              context: {
+                name: $name,
+                genre: $genre
+              },
+              targetUrl: $url
+            }')
           
-          # Intentar postear a PR primero (si existe PR_ID)
-          if [ -n "$PR_ID" ] && [ "$PR_ID" != "null" ]; then
-            echo "📍 Posting to PR #$PR_ID..."
-            
-            HTTP_STATUS=$(curl -w "%{http_code}" -o pr_response.json \
-              -X POST \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
-              "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
-              -d "$BASE_PAYLOAD")
-            
-            echo "PR Status HTTP: $HTTP_STATUS"
-            cat pr_response.json
-            
-            if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-              echo "✅ PR status posted successfully"
-              exit 0
-            else
-              echo "⚠️ PR status failed, trying commit status..."
-            fi
-          else
-            echo "⚠️ No PR ID, posting to commit only"
-          fi
+          echo "Payload:"
+          echo "$PAYLOAD" | jq .
           
-          # Fallback: Postear a commit level (siempre funciona)
-          echo "📍 Posting to commit $COMMIT_SHA..."
-          
-          HTTP_STATUS=$(curl -w "%{http_code}" -o commit_response.json \
+          # Post a commit status (siempre funciona)
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
             "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
-            -d "$BASE_PAYLOAD")
+            -d "$PAYLOAD")
           
-          echo "Commit Status HTTP: $HTTP_STATUS"
-          cat commit_response.json
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Status: $HTTP_STATUS"
+          echo "Response:"
+          echo "$BODY" | jq . || echo "$BODY"
           
           if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-            echo "✅ Commit status posted successfully"
+            echo "✅ Status posted"
           else
-            echo "⚠️ Failed to post status, but continuing..."
+            echo "⚠️ Failed, but continuing..."
           fi
 
-  # Run actual tests
   test:
     needs: post-pending-status
-    if: always()  # Run even if status post failed
+    if: always()
     uses: ./.github/workflows/split-local.yml
     secrets:
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
@@ -93,94 +77,76 @@ jobs:
       publish-summary: true
       split-file: timings.json
 
-  # Report results back to Azure DevOps
   report-to-azure:
     needs: test
     if: always() && github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Determine Test Result
-        id: test_result
+      - name: Determine Result
+        id: result
         run: |
           if [ "${{ needs.test.result }}" = "success" ]; then
             echo "state=succeeded" >> $GITHUB_OUTPUT
-            echo "description=All E2E tests passed ✅" >> $GITHUB_OUTPUT
+            echo "desc=All E2E tests passed ✅" >> $GITHUB_OUTPUT
           elif [ "${{ needs.test.result }}" = "failure" ]; then
             echo "state=failed" >> $GITHUB_OUTPUT
-            echo "description=E2E tests failed ❌" >> $GITHUB_OUTPUT
+            echo "desc=E2E tests failed ❌" >> $GITHUB_OUTPUT
           else
             echo "state=error" >> $GITHUB_OUTPUT
-            echo "description=E2E tests encountered an error ⚠️" >> $GITHUB_OUTPUT
+            echo "desc=Tests error ⚠️" >> $GITHUB_OUTPUT
           fi
       
       - name: Post Final Status to Azure DevOps
         continue-on-error: true
         run: |
-          echo "📤 Posting final status to Azure DevOps..."
+          echo "📤 Posting final status..."
           
           AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
           AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
           REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
           COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-          PR_ID="${{ github.event.client_payload.azure_pull_request_id }}"
           
-          # Preparar el payload base
-          BASE_PAYLOAD='{
-            "state": "${{ steps.test_result.outputs.state }}",
-            "description": "${{ steps.test_result.outputs.description }}",
-            "context": {
-              "name": "GitHub-E2E-Tests",
-              "genre": "continuous-integration"
-            },
-            "targetUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }'
+          # Construir JSON con jq
+          PAYLOAD=$(jq -n \
+            --arg state "${{ steps.result.outputs.state }}" \
+            --arg desc "${{ steps.result.outputs.desc }}" \
+            --arg name "GitHub-E2E-Tests" \
+            --arg genre "continuous-integration" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              state: $state,
+              description: $desc,
+              context: {
+                name: $name,
+                genre: $genre
+              },
+              targetUrl: $url
+            }')
           
-          # Intentar postear a PR primero (si existe PR_ID)
-          if [ -n "$PR_ID" ] && [ "$PR_ID" != "null" ]; then
-            echo "📍 Posting to PR #$PR_ID..."
-            
-            HTTP_STATUS=$(curl -w "%{http_code}" -o pr_response.json \
-              -X POST \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
-              "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/pullRequests/${PR_ID}/statuses?api-version=7.1" \
-              -d "$BASE_PAYLOAD")
-            
-            echo "PR Status HTTP: $HTTP_STATUS"
-            cat pr_response.json
-            
-            if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-              echo "✅ PR status posted successfully"
-              # No exit aquí, continuar para postear también a commit
-            else
-              echo "⚠️ PR status failed"
-            fi
-          fi
+          echo "Payload:"
+          echo "$PAYLOAD" | jq .
           
-          # SIEMPRE postear a commit level (para que aparezca en el repo)
-          echo "📍 Posting to commit $COMMIT_SHA..."
-          
-          HTTP_STATUS=$(curl -w "%{http_code}" -o commit_response.json \
+          # Post a commit status
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic $(echo -n ":${{ secrets.AZURE_DEVOPS_TOKEN }}" | base64)" \
             "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
-            -d "$BASE_PAYLOAD")
+            -d "$PAYLOAD")
           
-          echo "Commit Status HTTP: $HTTP_STATUS"
-          cat commit_response.json
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Status: $HTTP_STATUS"
+          echo "Response:"
+          echo "$BODY" | jq . || echo "$BODY"
           
           if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
-            echo "✅ Status posted successfully to Azure DevOps"
+            echo "✅ Status posted to Azure"
           else
-            echo "❌ Failed to post status to Azure DevOps"
-            echo "Response:"
-            cat commit_response.json
-            # No fallar aquí, solo advertir
+            echo "❌ Failed to post"
           fi
       
       - name: Fail if Tests Failed
-        if: steps.test_result.outputs.state != 'succeeded'
-        run: |
-          echo "❌ Tests failed - marking job as failed"
-          exit 1
+        if: steps.result.outputs.state != 'succeeded'
+        run: exit 1
