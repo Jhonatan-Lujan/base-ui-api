@@ -1,10 +1,6 @@
 name: e2e tests
 
-on: 
-  push:
-    branches:
-      - main
-  pull_request:
+on:
   repository_dispatch:
     types: [azure_devops_trigger]
 

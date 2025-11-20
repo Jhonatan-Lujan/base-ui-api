@@ -12,6 +12,3 @@ jobs:
         before-run: npm run stop-only
         publish-summary: true
         split-file: timings.json
-        
-
-
