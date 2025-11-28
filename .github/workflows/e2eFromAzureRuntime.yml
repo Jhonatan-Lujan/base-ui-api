@@ -1,0 +1,143 @@
+#e2eFromAzureRuntime.yml
+name: e2e tests (Azure Runtime)
+
+on:
+  repository_dispatch:
+    types: [azure_runtime_trigger]
+
+jobs:
+  post-pending-status:
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Post Pending Status
+        run: |
+          echo "📤 Posting pending status..."
+          
+          AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
+          AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
+          REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
+          TOKEN="${{ secrets.AZURE_DEVOPS_TOKEN }}"
+          
+          PAYLOAD=$(jq -n \
+            --arg state "pending" \
+            --arg desc "GitHub Actions E2E tests running..." \
+            --arg name "GitHub-E2E-Tests-Runtime" \
+            --arg genre "continuous-integration" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              state: $state,
+              description: $desc,
+              context: {
+                name: $name,
+                genre: $genre
+              },
+              targetUrl: $url
+            }')
+          
+          echo "Payload: $PAYLOAD"
+          
+          curl -v \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Basic $(printf ":%s" "$TOKEN" | base64 -w 0)" \
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
+            -d "$PAYLOAD" \
+            2>&1 | tee curl_output.log
+          
+          if grep -q "HTTP/2 20" curl_output.log; then
+            echo "✅ Status posted"
+          else
+            echo "❌ Failed - check logs above"
+            exit 1
+          fi
+
+  test:
+    needs: post-pending-status
+    if: always()
+    uses: ./.github/workflows/split-local.yml
+    secrets:
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    with:
+      nE2E: ${{ fromJson(github.event.client_payload.parameters.nE2E) }}
+      config-file: ${{ github.event.client_payload.parameters.config_file }}
+      browser: ${{ github.event.client_payload.parameters.browser }}
+      command: ${{ github.event.client_payload.parameters.command }}
+      skip-spec: ${{ github.event.client_payload.parameters.skip_spec }}
+      debug: ${{ github.event.client_payload.parameters.debug }}
+      marge: ${{ fromJson(github.event.client_payload.parameters.marge) }}
+      split-file: ${{ github.event.client_payload.parameters.split_file }}
+      env: ${{ github.event.client_payload.parameters.env }}
+      before-run: npm run stop-only
+      publish-summary: true
+
+  report-to-azure:
+    needs: test
+    if: always() && github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Determine Result
+        id: result
+        run: |
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            echo "state=succeeded" >> $GITHUB_OUTPUT
+            echo "desc=All E2E tests passed" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "state=failed" >> $GITHUB_OUTPUT
+            echo "desc=E2E tests failed" >> $GITHUB_OUTPUT
+          else
+            echo "state=error" >> $GITHUB_OUTPUT
+            echo "desc=Tests error" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Post Final Status to Azure DevOps
+        continue-on-error: true
+        run: |
+          echo "📤 Posting final status..."
+          
+          AZURE_ORG="${{ github.event.client_payload.azure_organization }}"
+          AZURE_PROJECT="${{ github.event.client_payload.azure_project }}"
+          REPO_ID="${{ github.event.client_payload.azure_repository_id }}"
+          COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
+          TOKEN="${{ secrets.AZURE_DEVOPS_TOKEN }}"
+          
+          PAYLOAD=$(jq -n \
+            --arg state "${{ steps.result.outputs.state }}" \
+            --arg desc "${{ steps.result.outputs.desc }}" \
+            --arg name "GitHub-E2E-Tests-Runtime" \
+            --arg genre "continuous-integration" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              state: $state,
+              description: $desc,
+              context: {
+                name: $name,
+                genre: $genre
+              },
+              targetUrl: $url
+            }')
+          
+          echo "Payload: $PAYLOAD"
+          
+          curl -v \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Basic $(printf ":%s" "$TOKEN" | base64 -w 0)" \
+            "https://dev.azure.com/${AZURE_ORG}/${AZURE_PROJECT}/_apis/git/repositories/${REPO_ID}/commits/${COMMIT_SHA}/statuses?api-version=7.1" \
+            -d "$PAYLOAD" \
+            2>&1 | tee curl_output.log
+          
+          if grep -q "HTTP/2 20" curl_output.log; then
+            echo "✅ Posted to Azure"
+          else
+            echo "❌ Failed"
+            cat curl_output.log
+            exit 1
+          fi
+      
+      - name: Fail if Tests Failed
+        if: steps.result.outputs.state != 'succeeded'
+        run: exit 1

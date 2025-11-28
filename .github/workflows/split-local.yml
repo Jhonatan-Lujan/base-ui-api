@@ -1,6 +1,7 @@
 # reusable workflow to install NPM dependencies
 # and run Cypress tests across N machines in using cypress-split
 # https://github.com/bahmutov/cypress-split
+# split-local.yml
 name: split
 on:
   workflow_call:
